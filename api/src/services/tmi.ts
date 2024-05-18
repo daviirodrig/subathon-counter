@@ -148,6 +148,10 @@ client.on("reconnect", () => {
 
 const tmi = {
     connect: () => {
+        if (myEnv.TMI_CHANNELS === "disabled") {
+            console.log("TMI_CHANNELS disabled")
+            return
+        }
         client.connect()
         // twitch.connect()
     },

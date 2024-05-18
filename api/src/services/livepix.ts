@@ -118,7 +118,10 @@ const sendMessage = (ws: WebSocket, message: Object) => {
     const json = JSON.stringify(message)
     const buffer = Buffer.from(json)
     ws.send(buffer)
+    console.log("Sent LivePixWS:", buffer.toString())
 }
+
+const alertsProcessed: string[] = []
 
 const handleConection = (ws: WebSocket) => (event: any) => {
     const data: MessageWrapper<AvailableEvents> = JSON.parse(event.toString())
@@ -149,15 +152,25 @@ const handleConection = (ws: WebSocket) => (event: any) => {
                 },
             }
             sendMessage(ws, confirmationMessage)
+            if (alertsProcessed.includes(message.payload.alertId)) {
+                console.log("Duplicated %s", message.payload.alertId)
+                break
+            }
+            alertsProcessed.push(message.payload.alertId)
             if (onDonation) onDonation(donation)
     }
 }
 
 const startConnection = () => {
+    if (myEnv.LIVEPIX_WIDGET_ID === "disabled") {
+        console.log("LivePix Widget ID disabled")
+        return
+    }
+
     const ws = new WebSocket(`wss://pubsub.livepix.gg/ws`)
 
     ws.onopen = async () => {
-        console.log("Websocket conectado")
+        console.log("LivePixWS conectado")
         const widgetId = myEnv.LIVEPIX_WIDGET_ID
         const token = await getFuckingToken(widgetId)
         const authMessage = getAuthMessage(token)
@@ -166,11 +179,11 @@ const startConnection = () => {
 
         const message1 = getSubscribeMessage(`widget:${widgetId}`)
         sendMessage(ws, message1)
-        console.log("Websocket logado")
+        console.log("LivePixWS logado")
     }
 
     ws.onclose = () => {
-        console.log("websocket fechado")
+        console.log("LivePixWS fechado")
         startConnection()
     }
 
@@ -181,7 +194,7 @@ const livepix = {
     setDonationCallback: (callback: DonationCallback) => {
         onDonation = callback
     },
-    startConnection
+    startConnection,
 }
 
 export default livepix

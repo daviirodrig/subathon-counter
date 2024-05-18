@@ -28,6 +28,7 @@ const registerEvents = () => {
         })
     })
     io.on("disconnect", (socket) => {
+        console.log("Disconnected", socket.id)
         openConnectionsCount -= 1
     })
 

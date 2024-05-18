@@ -3,6 +3,7 @@ import { z } from "zod"
 const envSchema = z.object({
     LIVEPIX_WIDGET_ID: z.string(),
     TMI_CHANNELS: z.string(),
+    YT_CHANNEL: z.string(),
 })
 
 const myEnv = envSchema.parse(process.env)

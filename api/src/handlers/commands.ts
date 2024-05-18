@@ -3,10 +3,11 @@ import { ChatUserstate } from "tmi.js"
 import websocket from "../websocket"
 import timer from "./timer"
 import type { IMultipliers } from "./timer"
+import type { IChatYTMessage } from "tubechat/lib/types/Client"
 
 const PREFIX = "!"
 
-const handleTimer = (source: string, rawArgs: string[]) => {
+const handleTimer = (rawArgs: string[]) => {
     if (rawArgs.length === 0) return console.log("Sem args", rawArgs)
     const firstArg = rawArgs[0]
     const operator = firstArg[0]
@@ -35,16 +36,15 @@ const handleTimer = (source: string, rawArgs: string[]) => {
     websocket.sendTime()
 }
 
-const handleValueChange =
-    (key: keyof IMultipliers) => (source: string, rawArgs: string[]) => {
-        const [value] = rawArgs
-        const msTime = ms(value)
-        if (!msTime) return console.log("Tempo inválido", value)
-        const multipliers = timer.getMultipliers()
-        timer.setMultipliers({ ...multipliers, [key]: msTime })
+const handleValueChange = (key: keyof IMultipliers) => (rawArgs: string[]) => {
+    const [value] = rawArgs
+    const msTime = ms(value)
+    if (!msTime) return console.log("Tempo inválido", value)
+    const multipliers = timer.getMultipliers()
+    timer.setMultipliers({ ...multipliers, [key]: msTime })
 
-        console.log("Setei", key, msTime, value)
-    }
+    console.log("Setei", key, msTime, value)
+}
 
 const handleReload = () => {
     websocket.broadcast("reload")
@@ -56,9 +56,7 @@ const handlePause = () => {
     console.log("Paused", timer.getPauseStatus())
 }
 
-let whiteListUserIds = ["270082103", "144746469", "94753308"]
-
-const handleMessage = (
+const handleTwitchMessage = (
     channel: string,
     tags: ChatUserstate,
     message: string,
@@ -67,20 +65,45 @@ const handleMessage = (
     if (tags["message-type"] !== "chat") return
     if (self || !message.startsWith(PREFIX)) return
 
+    const whiteListUserIds: string[] = []
+
     const [source, ...args] = message.slice(1).split(/ +/g)
     const isMod = whiteListUserIds.includes(tags["user-id"]!)
     if (!isMod) return console.log("Usuário não é mod", tags.username!, message)
 
-    switch (source) {
+    console.log("Handling %s from %s", message, tags.username!)
+    handleCommands(source, args)
+}
+
+const handleYoutubeMessage = (message: IChatYTMessage) => {
+    // console.log("Handling youtube message", message)
+
+    const whitelist: string[] = []
+    const isMod = message.isModerator || message.isOwner || whitelist.includes(message.channelId)
+
+    if (!message.message[0].text?.startsWith(PREFIX)) return
+    if (!isMod) {
+        console.log("User is not mod", message.name)
+        return
+    }
+    const [source, ...args] =
+        message.message[0].text?.slice(1).split(/ +/g) || []
+
+    console.log("Handling %s from %s", message.message[0].text, message.name)
+    handleCommands(source, args)
+}
+
+const handleCommands = (command: string, args: string[]) => {
+    switch (command) {
         case "timer":
-            return handleTimer(source, args)
+            return handleTimer(args)
         case "real":
-            return handleValueChange("msPerReal")(source, args)
+            return handleValueChange("msPerReal")(args)
         case "sub":
-            return handleValueChange("msPerSub")(source, args)
+            return handleValueChange("msPerSub")(args)
         case "bit":
         case "bits":
-            handleValueChange("msPerBit")(source, args)
+            handleValueChange("msPerBit")(args)
             return
         case "reload":
             return handleReload()
@@ -88,13 +111,15 @@ const handleMessage = (
         case "stop":
         case "start":
             return handlePause()
-
         default:
+            console.log("Command inválido", command, args.toString())
             return
     }
 }
+
 const commands = {
-    handleMessage,
+    handleTwitchMessage,
+    handleYoutubeMessage,
 }
 
 export default commands

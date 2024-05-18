@@ -1,12 +1,10 @@
 "use client"
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useState } from "react"
 import { Socket } from "socket.io"
 import io from "socket.io-client"
 
 const useSocket = () => {
     const [socket, setSocket] = useState<Socket | null>(null)
-    const connectedRef = useRef(false)
-    const hasBeenConectedOnce = useRef(false)
 
     useEffect(() => {
         if (socket) return
@@ -22,15 +20,15 @@ const useSocket = () => {
         })
 
         s.on("connect", () => {
-            hasBeenConectedOnce.current = true
-            connectedRef.current = true
             setSocket(s as any)
             s.emit("ping")
         })
 
         s.on("disconnect", () => {
             console.log("Desconectado")
-            connectedRef.current = false
+            s.disconnect()
+            s.removeAllListeners()
+            setSocket(null)
         })
 
         console.log("Mandei essa merda")
@@ -41,15 +39,6 @@ const useSocket = () => {
             // s.removeAllListeners()
         }
     }, [socket])
-
-    useEffect(() => {
-        if(!socket) return
-        console.log("Executou", connectedRef, hasBeenConectedOnce)
-        if(!connectedRef.current && hasBeenConectedOnce.current) {
-            setSocket(null)
-            console.log("véi")
-        }
-    }, [connectedRef.current, socket])
 
     return socket
 }

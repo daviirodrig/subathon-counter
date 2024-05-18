@@ -30,25 +30,15 @@ httpServer.listen(5555, () => {
 import livepix from "./services/livepix"
 import timer from "./handlers/timer"
 import commands from "./handlers/commands"
+import youtube from "./services/youtube"
 
-// acima de 10, 10%, acima de 50, 25%, acima de 100, 50%
 livepix.setDonationCallback((donation) => {
-    console.log("Callback", donation)
-    let ratio = 1
+    console.log(
+        `Donation "${donation.author}" ${donation.amount.formatted}: "${donation.message}"`
+    )
 
-    if (donation.amount.value >= 100) {
-        ratio = 1.5
-    } else if (donation.amount.value >= 50) {
-        ratio = 1.25
-    } else if (donation.amount.value >= 10) {
-        ratio = 1.1
-    } else {
-        ratio = 1
-    }
-    
-    console.log({ amount: donation.amount.value, ratio })
     timer.addMs(
-        Number(donation.amount.value * timer.getMultipliers().msPerReal) * ratio
+        Number(donation.amount.value * timer.getMultipliers().msPerReal)
     )
     websocket.sendTime()
     websocket.broadcast("donation", donation satisfies ApiDonation)
@@ -66,6 +56,7 @@ tmi.setBitsCallback((bits) => {
         },
     } satisfies ApiCheer
 
+    console.log(`Bits "${cheerEvent.user.name}" ${cheerEvent.amount}`)
     websocket.broadcast("cheer", cheerEvent)
 
     timer.addMs(timer.getMultipliers().msPerBit * bits.bitsAmount)
@@ -81,7 +72,7 @@ tmi.setSubCallback((sub) => {
         },
     } satisfies ApiSub
 
-    console.log({ subEvent })
+    console.log(`Sub "${subEvent.user.name}"`)
     websocket.broadcast("sub", subEvent)
 
     timer.addMs(1 * timer.getMultipliers().msPerSub)
@@ -93,21 +84,65 @@ tmi.setSubGroupCallback((subGroup) => {
 })
 
 tmi.setSubGiftCallback((subGift) => {
-    console.log({ subGift })
     const subgiftEvent = {
         author: subGift.author,
         authorColor: subGift.authorColor,
         receiver: subGift.receiver,
     } satisfies ApiSubGift
 
+    console.log(
+        `SubGift "${subgiftEvent.author}" -> "${subgiftEvent.receiver}"`
+    )
     websocket.broadcast("subgift", subgiftEvent)
     timer.addMs(1 * timer.getMultipliers().msPerSub)
     websocket.sendTime()
 })
 
-tmi.getClient().on("message", commands.handleMessage)
-
+tmi.getClient().on("message", commands.handleTwitchMessage)
 tmi.connect()
+
+youtube.setSuperchatCallback((donation) => {
+    if (donation.amount.currency !== "brl") return
+    console.log(
+        `Superchat "${donation.author}" ${donation.amount.formatted}: "${donation.message}"`
+    )
+
+    timer.addMs(
+        Number(donation.amount.value * timer.getMultipliers().msPerReal)
+    )
+    websocket.sendTime()
+    websocket.broadcast("donation", donation satisfies ApiDonation)
+})
+
+youtube.setMemberCallback((member) => {
+    const subEvent = {
+        time: 1,
+        user: {
+            name: member.username,
+            color: "#ffffff",
+        },
+    } satisfies ApiSub
+    console.log(`Member "${member.username}"`)
+    timer.addMs(1 * timer.getMultipliers().msPerSub)
+    websocket.broadcast("sub", subEvent satisfies ApiSub)
+})
+
+youtube.setMemberGiftCallback((memberGift) => {
+    const subgiftEvent = {
+        author: memberGift.author,
+        authorColor: "#ffffff",
+        receiver: memberGift.receiver,
+    } satisfies ApiSubGift
+    console.log(
+        `MemberGift "${subgiftEvent.author}" -> "${subgiftEvent.receiver}"`
+    )
+    websocket.broadcast("subgift", subgiftEvent satisfies ApiSubGift)
+    timer.addMs(1 * timer.getMultipliers().msPerSub)
+    websocket.sendTime()
+})
+
+youtube.getClient().on("message", (msg) => commands.handleYoutubeMessage(msg)) //commands.handleYoutubeMessage)
+youtube.connect()
 
 const saveData = async () => {
     await storage.write({

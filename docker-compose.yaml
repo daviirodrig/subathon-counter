@@ -1,0 +1,37 @@
+services:
+  api:
+    build:
+      context: api
+      dockerfile: Dockerfile
+
+    environment: # "disabled" to disable connection
+      - "LIVEPIX_WIDGET_ID=UUID"
+      - "TMI_CHANNELS=channel,channel"
+      - "YT_CHANNEL=disabled"
+
+    ports:
+      - "5555:5555"
+    volumes:
+      - "./storage.json:/home/bun/app/storage.json"
+
+    restart: unless-stopped
+    logging:
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  client:
+    build:
+      context: client
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_WEBSOCKET_URL: "http://127.0.0.1:5555"
+
+    ports:
+      - "3000:3000"
+
+    restart: unless-stopped
+    logging:
+      options:
+        max-size: "10m"
+        max-file: "3"
